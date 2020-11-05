@@ -7,3 +7,11 @@ environment as follows:
     source transformers3.4/bin/activate
     python -m pip install -r requirements.txt
 
+then run as e.g.
+
+    sbatch scripts/slurm-test.sh \
+        --model_name TurkuNLP/bert-base-finnish-cased-v1 \
+	--labels data/turku-ner/labels.txt \
+	--train_data data/turku-ner/train.tsv \
+	--dev_data data/turku-ner/dev.tsv \
+	--cache_dir transformers-models
