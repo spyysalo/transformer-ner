@@ -31,3 +31,7 @@ else
 	ln -s "../turku-ner-corpus/data/conll/$s.tsv" "$targetdir/$s.tsv"
     done
 fi
+
+# Add labels.txt
+(echo "O"; cut -f 2 "$targetdir/train.tsv" | egrep '^[BI]' | sort | uniq) \
+    > "$targetdir/labels.txt"
