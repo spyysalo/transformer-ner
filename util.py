@@ -5,6 +5,8 @@ from collections import Counter
 from functools import wraps
 from time import time
 
+from tensorflow.keras.callbacks import Callback
+
 
 # logger setup
 logging.basicConfig()
@@ -48,3 +50,20 @@ def log_dataset_statistics(name, documents, log=logger.info):
     tokens = sum(d.token_count() for d in documents)
     log(f'{name}: {len(documents)} docs, {sents} sentences, '
         f'{words} words, {tokens} tokens')
+
+
+class LRHistory(Callback):
+    """Learning rate history for LR schedulers"""
+    def __init__(self, scheduler):
+        super().__init__()
+        self._scheduler = scheduler
+        self._step = 0
+        self.by_step = []
+        self.by_epoch = []
+
+    def on_epoch_begin(self, epoch, logs=None):
+        self.by_epoch.append(self._scheduler(self._step).numpy())
+
+    def on_train_batch_begin(self, batch, logs=None):
+        self.by_step.append(self._scheduler(self._step).numpy())
+        self._step += 1

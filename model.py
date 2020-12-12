@@ -25,7 +25,7 @@ def get_optimizer(lr, epochs, batch_size, warmup_proportion,
     num_warmup_steps = math.floor(num_train_steps * warmup_proportion)
 
     # Mostly defaults from transformers.optimization_tf
-    optimizer, lr_scheduler = create_optimizer(
+    optimizer, lr_schedule = create_optimizer(
         lr,
         num_train_steps=num_train_steps,
         num_warmup_steps=num_warmup_steps,
@@ -36,7 +36,7 @@ def get_optimizer(lr, epochs, batch_size, warmup_proportion,
         weight_decay_rate=0.01,
         power=1.0,
     )
-    return optimizer
+    return optimizer, lr_schedule
 
 
 def build_ner_model(pretrained_model, num_labels, seq_len):

@@ -24,6 +24,6 @@ echo "START $SLURM_JOBID: $(date)"
 
 srun python train.py "$@"
 
-gpuseff $SLURM_JOBID
+seff $SLURM_JOBID
 
 echo "END $SLURM_JOBID: $(date)"

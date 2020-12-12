@@ -10,7 +10,7 @@ from example import EXAMPLE_GENERATORS, examples_to_inputs
 from model import load_pretrained, get_optimizer, build_ner_model
 from evaluation import conlleval_report, evaluate_assign_labels_funcs
 from util import logger, timed, unique, most_common
-from util import log_examples, log_dataset_statistics
+from util import LRHistory, log_examples, log_dataset_statistics
 
 from defaults import (
     DEFAULT_BATCH_SIZE,
@@ -55,12 +55,6 @@ def argparser():
     ap.add_argument('--cache_dir', default=None,
                     help='transformers cache directory')
     return ap
-
-
-def tokenize_documents(documents, tokenize_func, label_func):
-    for document in documents:
-        document.tokenize(tokenize_func, label_func)
-        yield document
 
 
 def check_predictions(documents):
@@ -142,7 +136,7 @@ def main(argv):
     num_train_examples = len(train_examples)
     log_examples(train_examples, count=2)
 
-    optimizer = get_optimizer(
+    optimizer, lr_schedule = get_optimizer(
         options.lr,
         options.num_train_epochs,
         options.batch_size,
@@ -167,13 +161,18 @@ def main(argv):
     train_x, train_y = examples_to_inputs(train_examples)
     dev_x, dev_y = examples_to_inputs(dev_examples)
 
+    lr_history = LRHistory(lr_schedule)
     history = ner_model.fit(
         train_x,
         train_y,
         epochs=options.num_train_epochs,
         batch_size=options.batch_size,
-        validation_data=(dev_x, dev_y)
+        validation_data=(dev_x, dev_y),
+        callbacks=[lr_history]
     )
+    for k, v in history.history.items():
+        logger.info(f'{k} history: {v}')
+    logger.info(f'lr history: {lr_history.by_epoch}')
 
     dev_predictions = ner_model.predict(
         dev_x,
