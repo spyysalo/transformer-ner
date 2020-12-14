@@ -54,7 +54,8 @@ def build_ner_model(pretrained_model, num_labels, seq_len):
     pretrained_outputs = pretrained_model(inputs)
     sequence_output = pretrained_outputs[0]
 
-    # TODO consider Dropout here
+    sequence_output = Dropout(0.1)(sequence_output)
+
     ner_output = Dense(
         num_labels,
         activation='softmax'
