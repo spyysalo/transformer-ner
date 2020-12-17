@@ -6,7 +6,9 @@ Functionality for loading and representing text documents.
 
 import sys
 import logging
+import numpy as np
 
+from collections import OrderedDict
 from argparse import ArgumentParser
 from logging import warning
 
@@ -135,6 +137,7 @@ class Token:
         self.is_special = is_special
         self.masked = masked
         self.predictions = []
+        self.pred_summary = None
 
     @property
     def sentence(self):
@@ -152,6 +155,70 @@ class Token:
 
     def __str__(self):
         return f'{self.text}/{self.label}'
+
+
+def summarize_preds_token_avg(document):
+    """Summarize token predictions using the average value."""
+    for sentence in document.sentences:
+        for word in sentence.words:
+            for token in word.tokens:
+                probs = np.stack([p[1] for p in token.predictions])
+                token.pred_summary = np.mean(probs, axis=0)
+
+
+def summarize_preds_token_max(document):
+    """Summarize Token predictions using the maximum value."""
+    for sentence in document.sentences:
+        for word in sentence.words:
+            for token in word.tokens:
+                probs = np.stack([p[1] for p in token.predictions])
+                token.pred_summary = np.max(probs, axis=0)
+
+
+def summarize_preds_token_left(document):
+    """Summarize Token predictions using leftmost prediction."""
+    for sentence in document.sentences:
+        for word in sentence.words:
+            for token in word.tokens:
+                sorted_probs = sorted(token.predictions)
+                token.pred_summary = sorted_probs[0][1]
+
+
+def summarize_preds_token_middle(document):
+    """Summarize Token predictions using middle prediction."""
+    for sentence in document.sentences:
+        for word in sentence.words:
+            for token in word.tokens:
+                sorted_probs = sorted(token.predictions)
+                mid = len(sorted_probs) // 2
+                token.pred_summary = sorted_probs[mid][1]
+
+
+def summarize_preds_token_right(document):
+    """Summarize Token predictions using rightmost prediction."""
+    for sentence in document.sentences:
+        for word in sentence.words:
+            for token in word.tokens:
+                sorted_probs = sorted(token.predictions)
+                token.pred_summary = sorted_probs[-1][1]
+
+
+PREDICTION_SUMMARIZERS = OrderedDict([
+    ('avg', summarize_preds_token_avg),
+    ('max', summarize_preds_token_max),    
+    ('left', summarize_preds_token_left),
+    ('middle', summarize_preds_token_middle),
+    ('right', summarize_preds_token_right),
+])
+
+
+def get_prediction_summarizer(summary=None):
+    if summary is None:
+        return list(PREDICTION_SUMMARIZERS.keys())[0]    # default
+    elif summary in PREDICTION_SUMMARIZERS:
+        return PREDICTION_SUMMARIZERS[summary]
+    else:
+        raise ValueError(f'unknown summary strategy {summary}')
 
 
 def write_conll(documents, separator='\t', include_gold_label=True,

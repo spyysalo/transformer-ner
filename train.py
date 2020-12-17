@@ -5,6 +5,7 @@ from collections import OrderedDict
 from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter
 
 from data import ConllLoader, Token, load_labels, write_conll
+from data import PREDICTION_SUMMARIZERS
 from label import LabelEncoder, Iob2TokenLabeler, LABEL_ASSIGNERS
 from example import EXAMPLE_GENERATORS, examples_to_inputs
 from model import load_pretrained, get_optimizer, build_ner_model
@@ -28,7 +29,7 @@ def argparser():
                     help='maximum input sequence length')
     ap.add_argument('--labels', metavar='FILE', required=True,
                     help='file with labels (one per line)')
-    ap.add_argument('--lr', '--learning_rate', metavar='FLOAT', type=float, 
+    ap.add_argument('--lr', '--learning_rate', metavar='FLOAT', type=float,
                     default=DEFAULT_LR, help='learning rate')
     ap.add_argument('--num_train_epochs', metavar='INT', type=int, default=1,
                     help='number of training epochs')
@@ -45,6 +46,9 @@ def argparser():
     ap.add_argument('--examples', choices=EXAMPLE_GENERATORS.keys(),
                     default=list(EXAMPLE_GENERATORS.keys())[0],
                     help='example generation strategy')
+    ap.add_argument('--summarize_preds', choices=PREDICTION_SUMMARIZERS.keys(),
+                    default=list(PREDICTION_SUMMARIZERS.keys())[0],
+                    help='prediction summarization strategy')
     ap.add_argument('--assign_labels', choices=LABEL_ASSIGNERS.keys(),
                     default=list(LABEL_ASSIGNERS.keys())[0],
                     help='label assignment strategy')
@@ -193,8 +197,10 @@ def main(argv):
     for n, r in evaluate_assign_labels_funcs(documents, label_encoder).items():
         print(f'{n}: prec {r.prec:.2%} rec {r.rec:.2%} f {r.fscore:.2%}')
 
+    summarize_predictions = PREDICTION_SUMMARIZERS[options.summarize_preds]
     assign_labels = LABEL_ASSIGNERS[options.assign_labels]
     for document in documents:
+        summarize_predictions(document)
         assign_labels(document, label_encoder)
 
     print(conlleval_report(documents))
@@ -202,7 +208,7 @@ def main(argv):
     if options.output_file is not None:
         with open(options.output_file, 'w') as out:
             write_conll(documents, out=out)
-    
+
     return 0
 
 

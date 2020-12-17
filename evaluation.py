@@ -92,11 +92,14 @@ def assign_labels_first_freq(document, label_encoder):
 
 
 def evaluate_assign_labels_funcs(documents, label_encoder):
+    from data import PREDICTION_SUMMARIZERS
     from label import LABEL_ASSIGNERS
 
     results = OrderedDict()
-    for name, assign_labels in LABEL_ASSIGNERS.items():
-        for document in documents:
-            assign_labels(document, label_encoder)
-        results[name] = conlleval_overall_results(documents)
+    for sn, summarize_predictions in PREDICTION_SUMMARIZERS.items():
+        for an, assign_labels in LABEL_ASSIGNERS.items():
+            for document in documents:
+                summarize_predictions(document)
+                assign_labels(document, label_encoder)
+            results[f'{sn}-{an}'] = conlleval_overall_results(documents)
     return results

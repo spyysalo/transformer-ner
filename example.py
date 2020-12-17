@@ -123,7 +123,7 @@ class SingleSentenceExampleGenerator(ExampleGenerator):
     def __init__(self, *args):
         super().__init__(*args)
 
-    def fill(tokens, sentences, current_idx):
+    def fill(self, tokens, sentences, current_idx):
         pass    # no fill
 
 
@@ -223,7 +223,7 @@ def main(argv):
         tokenize_func,
         label_func
     )
-    example_generator = WrappedSentenceExampleGenerator(
+    example_generator = WrapSentenceExampleGenerator(
         seq_len,
         Token(tokenizer.cls_token, is_special=True, masked=False),
         Token(tokenizer.sep_token, is_special=True, masked=False),
