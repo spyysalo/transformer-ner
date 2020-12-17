@@ -10,8 +10,10 @@ from label import LabelEncoder, Iob2TokenLabeler, LABEL_ASSIGNERS
 from example import EXAMPLE_GENERATORS, examples_to_inputs
 from model import load_pretrained, get_optimizer, build_ner_model
 from evaluation import conlleval_report, evaluate_assign_labels_funcs
+from evaluation import evaluate_viterbi
 from util import logger, timed, unique, most_common
 from util import LRHistory, log_examples, log_dataset_statistics
+from viterbi import viterbi_probabilities, viterbi_path
 
 from defaults import (
     DEFAULT_BATCH_SIZE,
@@ -81,17 +83,14 @@ def main(argv):
     logger.info(f'train.py arguments: {options}')
 
     # word_labels are the labels assigned to words in the original data,
-    # token_labels the labels assigned to tokens in the tokenizer data.
+    # token_labels the labels assigned to tokens in the tokenized data.
     # The two are differentiated to allow distinct labels to be added
     # e.g. to continuation wordpieces.
     word_labels = load_labels(options.labels)
     token_labeler = Iob2TokenLabeler(word_labels)
     token_labels = token_labeler.labels()
     num_labels = len(token_labels)
-    label_func = token_labeler.label_tokens
-
     label_encoder = LabelEncoder(token_labels)
-    encode_labels = label_encoder.encode
 
     logger.info('loading pretrained model')
     pretrained_model, tokenizer, config = load_pretrained(
@@ -106,12 +105,11 @@ def main(argv):
                          f'supported by model')
     seq_len = options.max_seq_length
 
-    tokenize_func = tokenizer.tokenize
     encode_tokens = lambda t: tokenizer.encode(t, add_special_tokens=False)
 
     document_loader = ConllLoader(
-        tokenize_func,
-        label_func,
+        tokenizer.tokenize,
+        token_labeler.label_tokens,
         options.separator
     )
 
@@ -121,7 +119,7 @@ def main(argv):
         Token(tokenizer.sep_token, is_special=True, masked=False),
         Token(tokenizer.pad_token, is_special=True, masked=True),
         encode_tokens,
-        encode_labels
+        label_encoder.encode
     )
 
     train_documents = document_loader.load(options.train_data)
@@ -131,6 +129,11 @@ def main(argv):
     dev_documents = list(dev_documents)
     log_dataset_statistics('train', train_documents)
     log_dataset_statistics('dev', dev_documents)
+
+    init_prob, trans_prob = viterbi_probabilities(
+        train_documents, label_encoder.label_map)
+    logger.info(f'init_prob:\n{init_prob}')
+    logger.info(f'trans_prob:\n{trans_prob}')
 
     train_examples = example_generator.examples(train_documents)
     dev_examples = example_generator.examples(dev_documents)
@@ -203,6 +206,13 @@ def main(argv):
         summarize_predictions(document)
         assign_labels(document, label_encoder)
 
+    for n, r in evaluate_viterbi(
+            documents, init_prob, trans_prob, label_encoder).items():
+        print(f'{n}: prec {r.prec:.2%} rec {r.rec:.2%} f {r.fscore:.2%}')
+
+    for document in documents:
+        assign_labels(document, label_encoder)    # greedy
+        
     print(conlleval_report(documents))
 
     if options.output_file is not None:

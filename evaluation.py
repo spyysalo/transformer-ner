@@ -103,3 +103,20 @@ def evaluate_assign_labels_funcs(documents, label_encoder):
                 assign_labels(document, label_encoder)
             results[f'{sn}-{an}'] = conlleval_overall_results(documents)
     return results
+
+
+def evaluate_viterbi(documents, init_prob, trans_prob, label_encoder):
+    from viterbi import viterbi_path
+
+    results = OrderedDict()
+    results['greedy'] = conlleval_overall_results(documents)
+    for weight in (1, 2, 4, 6, 8, 10):
+        for document in documents:
+            for sentence in document.sentences:
+                cond_prob = [w.tokens[0].pred_summary for w in sentence.words]
+                path = viterbi_path(init_prob, trans_prob, cond_prob, weight)
+                assert len(path) == len(sentence.words)
+                for idx, word in zip(path, sentence.words):
+                    word.predicted_label = label_encoder.inv_label_map[idx]
+        results[f'viterbi w={weight}'] = conlleval_overall_results(documents)
+    return results
