@@ -256,7 +256,7 @@ def load_labels(fn):
     return labels
 
 
-def load_conll(fn, separator=None):
+def load_conll(fn, separator=None, test=False):
     words, sentences = [], []
     at_document_start = False
     with open(fn) as f:
@@ -276,6 +276,9 @@ def load_conll(fn, separator=None):
                     warning(f'no empty after doc start on line {ln} in {fn}')
                 fields = l.split(separator)
                 text, label = fields[0], fields[-1]
+                if test:
+                    # blank out labels in test mode
+                    label = 'O'
                 words.append(Word(text, label))
                 at_document_start = False
             else:
@@ -295,13 +298,15 @@ def load_conll(fn, separator=None):
 
 class ConllLoader:
     """Loads and tokenizes data in CoNLL-like formats."""
-    def __init__(self, tokenize_func, label_func, separator=None):
+    def __init__(self, tokenize_func, label_func, separator=None, test=False):
         self.tokenize_func = tokenize_func
         self.label_func = label_func
         self.separator = None
+        self.test = test
 
     def load(self, path):
-        for document in load_conll(path, separator=self.separator):
+        for document in load_conll(path, separator=self.separator,
+                                   test=self.test):
             document.tokenize(self.tokenize_func, self.label_func)
             yield document
 
