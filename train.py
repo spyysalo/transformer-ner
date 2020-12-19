@@ -9,9 +9,10 @@ from data import PREDICTION_SUMMARIZERS
 from label import LabelEncoder, Iob2TokenLabeler, LABEL_ASSIGNERS
 from example import EXAMPLE_GENERATORS, examples_to_inputs
 from model import load_pretrained, get_optimizer, build_ner_model
+from model import save_ner_model
 from evaluation import conlleval_report, evaluate_assign_labels_funcs
 from evaluation import evaluate_viterbi
-from util import logger, timed, unique, most_common
+from util import logger, timed, unique
 from util import LRHistory, log_examples, log_dataset_statistics
 from viterbi import viterbi_probabilities, viterbi_path
 
@@ -58,6 +59,8 @@ def argparser():
                     help='CoNLL format field separator')
     ap.add_argument('--output_file', default=None,
                     help='file to write predicted outputs to')
+    ap.add_argument('--ner_model_dir', default=None,
+                    help='Trained NER model directory')
     ap.add_argument('--cache_dir', default=None,
                     help='transformers cache directory')
     return ap
@@ -82,24 +85,23 @@ def main(argv):
     options = argparser().parse_args(argv[1:])
     logger.info(f'train.py arguments: {options}')
 
-    # word_labels are the labels assigned to words in the original data,
-    # token_labels the labels assigned to tokens in the tokenized data.
-    # The two are differentiated to allow distinct labels to be added
-    # e.g. to continuation wordpieces.
+    # word_labels are the labels assigned to words in the original
+    # data, token_labeler.labels() the labels assigned to tokens in
+    # the tokenized data. The two are differentiated to allow distinct
+    # labels to be added e.g. to continuation wordpieces.
     word_labels = load_labels(options.labels)
     token_labeler = Iob2TokenLabeler(word_labels)
-    token_labels = token_labeler.labels()
-    num_labels = len(token_labels)
-    label_encoder = LabelEncoder(token_labels)
+    num_labels = len(token_labeler.labels())
+    label_encoder = LabelEncoder(token_labeler.labels())
 
     logger.info('loading pretrained model')
     pretrained_model, tokenizer, config = load_pretrained(
         options.model_name,
         cache_dir=options.cache_dir
     )
-    logger.info('loaded pretrained model:')
-    pretrained_model.summary(print_fn=logger.info)
-
+    logger.info('pretrained model config:')
+    logger.info(config)
+    
     if options.max_seq_length > config.max_position_embeddings:
         raise ValueError(f'--max_seq_length {options.max_seq_length} not '
                          f'supported by model')
@@ -218,6 +220,15 @@ def main(argv):
     if options.output_file is not None:
         with open(options.output_file, 'w') as out:
             write_conll(documents, out=out)
+
+    if options.ner_model_dir is not None:
+        save_ner_model(
+            options.ner_model_dir,
+            ner_model,
+            tokenizer,
+            word_labels,
+            config
+        )
 
     return 0
 
