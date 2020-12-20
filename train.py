@@ -14,7 +14,7 @@ from evaluation import conlleval_report, evaluate_assign_labels_funcs
 from evaluation import evaluate_viterbi
 from util import logger, timed, unique
 from util import LRHistory, log_examples, log_dataset_statistics
-from viterbi import viterbi_probabilities, viterbi_path
+from viterbi import ViterbiDecoder
 
 from defaults import (
     DEFAULT_BATCH_SIZE,
@@ -101,7 +101,7 @@ def main(argv):
     )
     logger.info('pretrained model config:')
     logger.info(config)
-    
+
     if options.max_seq_length > config.max_position_embeddings:
         raise ValueError(f'--max_seq_length {options.max_seq_length} not '
                          f'supported by model')
@@ -132,10 +132,10 @@ def main(argv):
     log_dataset_statistics('train', train_documents)
     log_dataset_statistics('dev', dev_documents)
 
-    init_prob, trans_prob = viterbi_probabilities(
-        train_documents, label_encoder.label_map)
-    logger.info(f'init_prob:\n{init_prob}')
-    logger.info(f'trans_prob:\n{trans_prob}')
+    decoder = ViterbiDecoder(label_encoder.label_map)
+    decoder.estimate_probabilities(train_documents)
+    logger.info(f'init_prob:\n{decoder.init_prob}')
+    logger.info(f'trans_prob:\n{decoder.trans_prob}')
 
     train_examples = example_generator.examples(train_documents)
     dev_examples = example_generator.examples(dev_documents)
@@ -208,13 +208,13 @@ def main(argv):
         summarize_predictions(document)
         assign_labels(document, label_encoder)
 
-    for n, r in evaluate_viterbi(
-            documents, init_prob, trans_prob, label_encoder).items():
+    for n, r in evaluate_viterbi(documents, decoder.init_prob,
+                                 decoder.trans_prob, label_encoder).items():
         print(f'{n}: prec {r.prec:.2%} rec {r.rec:.2%} f {r.fscore:.2%}')
 
     for document in documents:
         assign_labels(document, label_encoder)    # greedy
-        
+
     print(conlleval_report(documents))
 
     if options.output_file is not None:
@@ -225,6 +225,7 @@ def main(argv):
         save_ner_model(
             options.ner_model_dir,
             ner_model,
+            decoder,
             tokenizer,
             word_labels,
             config

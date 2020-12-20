@@ -22,49 +22,7 @@ def _label_dict_to_array(label_dict, tag_map):
     return np.array([v for k, v in sorted(idx_dict.items())])
 
 
-def save_viterbi_probabilities(init_prob, trans_prob, inv_tag_map, path):
-    # Map numpy arrays to dictionaries
-    init_prob = { inv_tag_map[i]: v for i, v in enumerate(init_prob) }
-    trans_prob = {
-        inv_tag_map[i]: { inv_tag_map[j]: v for j, v in enumerate(p) }
-        for i, p in enumerate(trans_prob)
-    }
-    probs = {
-        'initial': init_prob,
-        'transition': trans_prob,
-    }
-    with open(path, 'w') as out:
-        json.dump(probs, out, indent=4)
-
-
-def load_viterbi_probabilities(path, tag_map):
-    with open(path) as f:
-        probs = json.load(f)
-    init_prob, trans_prob = probs['initial'], probs['transition']
-
-    # Map dictionaries to numpy arrays
-    init_prob = _label_dict_to_array(init_prob, tag_map)
-    trans_prob = {
-        k: _label_dict_to_array(v, tag_map) for k, v in trans_prob.items()
-    }
-    trans_prob = _label_dict_to_array(trans_prob, tag_map)
-    return init_prob, trans_prob
-
-
-def viterbi_probabilities(documents, tag_map, lambda_=0.001):
-    """Return initial state and transition probabilities estimated
-    from Token labels."""
-    sentence_labels = []
-    for document in documents:
-        for sentence in document.sentences:
-            labels = []
-            for word in sentence.words:
-                labels.extend([t.label for t in word.tokens])
-            sentence_labels.append(labels)
-    return _viterbi_probabilities(sentence_labels, tag_map, lambda_)
-
-
-def _viterbi_probabilities(sentence_labels, tag_map, lambda_=0.001):
+def viterbi_probabilities(sentence_labels, tag_map, lambda_=0.001):
     """Return initial state and transition probabilities estimated
     from given list of lists of labels."""
 
@@ -78,7 +36,7 @@ def _viterbi_probabilities(sentence_labels, tag_map, lambda_=0.001):
             try:
                 trans_count[tag_map[prev],tag_map[curr]] += 1
             except Exception as e:
-                error(f'VERROR: {e} {tag_map}')
+                error(f'ERROR: {e} {tag_map}')
 
     init_prob = init_count / np.sum(init_count)
     trans_prob = []
@@ -120,3 +78,67 @@ def viterbi_path(init_prob, trans_prob, cond_prob, weight=1):
     for t in reversed(range(seq_length-1)):
         path.append(prev[t+1,path[-1]])
     return list(reversed(path))
+
+
+class ViterbiDecoder:
+    def __init__(self, label_map, init_prob=None, trans_prob=None):
+        self.label_map = { 
+            k: v for k, v in label_map.items() if k is not None
+        }
+        self.init_prob = init_prob
+        self.trans_prob = trans_prob
+
+    def estimate_probabilities(self, documents, lambda_=0.001):
+        """Estimate initial and transition probabilities from data."""
+        sentence_labels = []
+        for document in documents:
+            for sentence in document.sentences:
+                labels = []
+                for word in sentence.words:
+                    labels.extend([t.label for t in word.tokens])
+                sentence_labels.append(labels)
+        init, trans =  viterbi_probabilities(
+            sentence_labels, self.label_map, lambda_)
+        self.init_prob = init
+        self.trans_prob = trans
+
+    def viterbi_path(self, cond_prob, weight=1):
+        return viterbi_path(self.init_prob, self.trans_prob, cond_prob, weight)
+
+    def save(self, path):
+        # Map numpy arrays to dictionaries
+        inv_label_map = { 
+            v: k for k, v in self.label_map.items() if k is not None
+        }
+        init_prob = { 
+            inv_label_map[i]: v for i, v in enumerate(self.init_prob)
+        }
+        trans_prob = {
+            inv_label_map[i]: { inv_label_map[j]: v for j, v in enumerate(p) }
+            for i, p in enumerate(self.trans_prob)
+        }
+        data = {
+            'initial': init_prob,
+            'transition': trans_prob,
+            'labels': self.label_map
+        }
+        with open(path, 'w') as out:
+            json.dump(data, out, indent=4)
+
+    @classmethod
+    def load(cls, path):
+        with open(path) as f:
+            data = json.load(f)
+        label_map = data['labels']
+        init_prob = data['initial']
+        trans_prob = data['transition']
+
+        # Map dictionaries to numpy arrays
+        init_prob = _label_dict_to_array(init_prob, label_map)
+        trans_prob = {
+            k: _label_dict_to_array(v, label_map)
+            for k, v in trans_prob.items()
+        }
+        trans_prob = _label_dict_to_array(trans_prob, label_map)
+        
+        return cls(label_map, init_prob, trans_prob)

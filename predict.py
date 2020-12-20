@@ -4,6 +4,7 @@ from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter
 
 from model import load_ner_model
 from data import ConllLoader, Token, PREDICTION_SUMMARIZERS
+from data import write_conll
 from label import LabelEncoder, Iob2TokenLabeler, LABEL_ASSIGNERS
 from example import EXAMPLE_GENERATORS, examples_to_inputs
 from util import logger, unique
@@ -24,7 +25,7 @@ def argparser():
 def main(argv):
     options = argparser().parse_args(argv[1:])
 
-    ner_model, tokenizer, word_labels, config = load_ner_model(
+    ner_model, decoder, tokenizer, word_labels, config = load_ner_model(
         options.ner_model_dir)
 
     token_labeler = Iob2TokenLabeler(word_labels)
@@ -60,7 +61,7 @@ def main(argv):
         assert len(example.tokens) == len(preds)
         for pos, (token, pred) in enumerate(zip(example.tokens, preds)):
             token.predictions.append((pos, pred))
-    
+
     documents = unique(
         t.document for e in test_examples for t in e.tokens if not t.is_special
     )
@@ -73,6 +74,19 @@ def main(argv):
     for document in documents:
         summarize_predictions(document)
         assign_labels(document, label_encoder)
+
+    with open('greedy.tsv', 'w') as out:
+        write_conll(documents, out=out)
+
+    for document in documents:
+        for sentence in document.sentences:
+            cond_prob = [w.tokens[0].pred_summary for w in sentence.words]
+            path = decoder.viterbi_path(cond_prob, weight=10)
+            for idx, word in zip(path, sentence.words):
+                word.predicted_label = label_encoder.inv_label_map[idx]
+
+    with open('viterbi.tsv', 'w') as out:
+        write_conll(documents, out=out)
 
     print(conlleval_report(documents))
 

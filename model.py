@@ -109,17 +109,16 @@ def _ner_labels_path(ner_model_dir):
 #    return os.path.join(ner_model_dir, 'model_config.json')
 
 
-def _ner_viterbi_path(ner_model_dir):
-    return os.path.join(ner_model_dir, 'probs.json')
+def _ner_decoder_path(ner_model_dir):
+    return os.path.join(ner_model_dir, 'decoder.json')
 
 
-def save_ner_model(directory, ner_model, tokenizer, labels, config):
+def save_ner_model(directory, ner_model, decoder, tokenizer, labels, config):
     os.makedirs(directory, exist_ok=True)
+    ner_model.save(_ner_model_path(directory))
+    decoder.save(_ner_decoder_path(directory))
     config.save_pretrained(directory)
     tokenizer.save_pretrained(directory)
-    # with open(_ner_model_config_path(directory), 'w') as out:
-    #     json.dump(config.to_dict(), out, indent=4)
-    ner_model.save(_ner_model_path(directory))
     with open(_ner_labels_path(directory), 'w') as out:
         for label in labels:
             print(label, file=out)
@@ -147,6 +146,7 @@ def load_labels(path):
 
 def load_ner_model(ner_model_dir):
     from tensorflow.keras.models import load_model
+    from viterbi import ViterbiDecoder
 
     config = AutoConfig.from_pretrained(ner_model_dir)
     tokenizer = AutoTokenizer.from_pretrained(
@@ -158,5 +158,6 @@ def load_ner_model(ner_model_dir):
         _ner_model_path(ner_model_dir),
         custom_objects=_get_custom_objects()
     )
+    decoder = ViterbiDecoder.load(_ner_decoder_path(ner_model_dir))
     labels = load_labels(_ner_labels_path(ner_model_dir))
-    return ner_model, tokenizer, labels, config
+    return ner_model, decoder, tokenizer, labels, config
