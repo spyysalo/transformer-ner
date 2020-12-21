@@ -17,6 +17,8 @@ from util import logger
 
 DOCUMENT_SEPARATOR = '-DOCSTART-'
 
+METADATA_MARKER = '-META-'
+
 
 def argparser():
     ap = ArgumentParser()
@@ -26,10 +28,11 @@ def argparser():
 
 
 class Document:
-    def __init__(self, sentences):
+    def __init__(self, sentences, metadata=None):
         for sentence in sentences:
             sentence.document = self
         self.sentences = sentences
+        self.metadata = metadata
 
     def tokenize(self, tokenize_func, label_func):
         """Tokenize Words and assign token labels.
@@ -62,7 +65,7 @@ class Sentence:
             word.sentence = self
         self.words = words
         self.document = None
-        
+
     def tokenize(self, tokenize_func, label_func):
         """Tokenize Words and assign token labels.
 
@@ -205,7 +208,7 @@ def summarize_preds_token_right(document):
 
 PREDICTION_SUMMARIZERS = OrderedDict([
     ('avg', summarize_preds_token_avg),
-    ('max', summarize_preds_token_max),    
+    ('max', summarize_preds_token_max),
     ('left', summarize_preds_token_left),
     ('middle', summarize_preds_token_middle),
     ('right', summarize_preds_token_right),
@@ -224,11 +227,12 @@ def get_prediction_summarizer(summary=None):
 def write_conll(documents, separator='\t', include_gold_label=True,
                 include_predicted_label=True, out=sys.stderr):
     for document in documents:
-        print(separator.join(
-            [DOCUMENT_SEPARATOR] +
-            ['O'] * (include_gold_label+include_predicted_label)),
-            file=out
-        )
+        fields = [DOCUMENT_SEPARATOR]
+        if document.metadata is not None:
+            fields += [METADATA_MARKER, document.metadata]
+        else:
+            fields += ['O'] * (include_gold_label+include_predicted_label)
+        print(separator.join(fields), file=out)
         print(file=out)
         for sentence in document.sentences:
             for word in sentence.words:
@@ -240,7 +244,7 @@ def write_conll(documents, separator='\t', include_gold_label=True,
                 print(separator.join(fields), file=out)
             print(file=out)
 
-                
+
 def load_labels(fn):
     labels = []
     with open(fn) as f:
@@ -259,16 +263,24 @@ def load_labels(fn):
 def load_conll(fn, separator=None, test=False):
     words, sentences = [], []
     at_document_start = False
+    metadata = None
     with open(fn) as f:
         for ln, l in enumerate(f, start=1):
             l = l.rstrip('\n')
             if l.startswith(DOCUMENT_SEPARATOR):
+                # Minor extension of CoNLL format: allow document metadata
+                # on -DOCSTART- line
+                rest = l[len(DOCUMENT_SEPARATOR):].strip()
+                if rest.startswith(METADATA_MARKER):
+                    metadata = rest[len(METADATA_MARKER):].strip()
+                else:
+                    metadata = None
                 if words:
                     warning(f'missing sentence separator on line {ln} in {fn}')
                     sentences.append(Sentence(words))
                     words = []
                 if sentences:
-                    yield Document(sentences)
+                    yield Document(sentences, metadata)
                     sentences = []
                 at_document_start = True
             elif l and not l.isspace():
@@ -293,7 +305,7 @@ def load_conll(fn, separator=None, test=False):
         warning(f'missing sentence separator on line {ln} in {fn}')
         sentences.append(Sentence(words))
     if sentences:
-        yield Document(sentences)
+        yield Document(sentences, metadata)
 
 
 class ConllLoader:

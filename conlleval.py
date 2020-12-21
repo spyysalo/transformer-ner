@@ -8,6 +8,7 @@
 # - option to set boundary (-b argument)
 # - LaTeX output (-l argument) not supported
 # - raw tags (-r argument) not supported
+# - allow metadata on -DOCSTART- lines
 
 import sys
 import re
@@ -16,6 +17,10 @@ from collections import defaultdict, namedtuple
 
 
 ANY_SPACE = '<SPACE>'
+
+DOCUMENT_SEPARATOR = '-DOCSTART-'
+
+METADATA_MARKER = '-META-'
 
 
 class FormatError(Exception):
@@ -80,6 +85,12 @@ def evaluate(iterable, options=None):
             features = line.split()
         else:
             features = line.split(options.delimiter)
+
+        if (len(features) >= 2 and
+            features[0] == DOCUMENT_SEPARATOR and
+            features[1] == METADATA_MARKER):
+            # Special case for ignoring document metadata
+            features = [DOCUMENT_SEPARATOR, 'O', 'O']
 
         if num_features is None:
             num_features = len(features)
