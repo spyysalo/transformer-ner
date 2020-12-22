@@ -10,7 +10,6 @@ import numpy as np
 
 from collections import OrderedDict
 from argparse import ArgumentParser
-from logging import warning
 
 from util import logger
 
@@ -120,8 +119,13 @@ class Word:
                 and returning list of of token labels.
         """
         if self.tokens is not None:
-            warning('Word tokenized repeatedly')
+            logger.warning('Word tokenized repeatedly')
         token_texts = tokenize_func(self.text)
+        if len(token_texts) == 0:
+            unk_token = '[UNK]'    # TODO
+            logger.warning(f'Word "{self.text}" tokenized to {token_texts}, '
+                           f'replacing with {unk_token}')
+            token_texts = [unk_token]
         token_labels = label_func(self.label, token_texts)
         self.tokens = [
             Token(t, l, self) for t, l in zip(token_texts, token_labels)
@@ -276,7 +280,8 @@ def load_conll(fn, separator=None, test=False):
                 else:
                     metadata = None
                 if words:
-                    warning(f'missing sentence separator on line {ln} in {fn}')
+                    logger.warning(
+                        f'missing sentence separator on line {ln} in {fn}')
                     sentences.append(Sentence(words))
                     words = []
                 if sentences:
@@ -285,7 +290,8 @@ def load_conll(fn, separator=None, test=False):
                 at_document_start = True
             elif l and not l.isspace():
                 if at_document_start:
-                    warning(f'no empty after doc start on line {ln} in {fn}')
+                    logger.warning(
+                        f'no empty after doc start on line {ln} in {fn}')
                 fields = l.split(separator)
                 text, label = fields[0], fields[-1]
                 if test:
@@ -299,10 +305,11 @@ def load_conll(fn, separator=None, test=False):
                     sentences.append(Sentence(words))
                     words = []
                 elif not at_document_start:
-                    warning(f'skipping empty sentence on line {ln} in {fn}')
+                    logger.warning(
+                        f'skipping empty sentence on line {ln} in {fn}')
                 at_document_start = False
     if words:
-        warning(f'missing sentence separator on line {ln} in {fn}')
+        logger.warning(f'missing sentence separator on line {ln} in {fn}')
         sentences.append(Sentence(words))
     if sentences:
         yield Document(sentences, metadata)
