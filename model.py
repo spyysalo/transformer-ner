@@ -5,16 +5,19 @@ import json
 from transformers import AutoConfig, AutoTokenizer, TFAutoModel
 from transformers.optimization_tf import AdamWeightDecay
 
-from util import timed
+from util import logger, timed
 
 
 @timed
 def load_pretrained(model_name, cache_dir=None):
     from transformers import TFBertModel
 
+    # TODO confirm that output_hidden_states=True is supported by all
+    # relevant models
     config = AutoConfig.from_pretrained(
         model_name,
-        cache_dir=cache_dir
+        cache_dir=cache_dir,
+        output_hidden_states=True
     )
     # `use_fast=False` here because the "fast" tokenizer encode()
     # doesn't accept list of strings as an argument. TODO: rework the
@@ -70,7 +73,7 @@ def get_optimizer(lr, epochs, batch_size, warmup_proportion,
 
 def build_ner_model(pretrained_model, num_labels, seq_len):
     from tensorflow.keras import Model
-    from tensorflow.keras.layers import Input, Dropout, Dense
+    from tensorflow.keras.layers import Input, Dropout, Dense, Average, Concatenate
     
     input_ids = Input(
         shape=(seq_len,), dtype='int32', name='input_ids')
@@ -82,6 +85,11 @@ def build_ner_model(pretrained_model, num_labels, seq_len):
 
     pretrained_outputs = pretrained_model(inputs)
     sequence_output = pretrained_outputs[0]
+    encoder_outputs = pretrained_outputs[2]
+
+    # concatenate output of the last four layers
+    sequence_output = Concatenate()(encoder_outputs[-4:])
+    logger.info(f'concatenated output shape: {sequence_output.shape}')
 
     sequence_output = Dropout(0.1)(sequence_output)
 
