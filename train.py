@@ -145,6 +145,15 @@ def main(argv):
     num_train_examples = len(train_examples)
     log_examples(train_examples, count=2)
 
+    train_x, train_y = examples_to_inputs(train_examples)
+    dev_x, dev_y = examples_to_inputs(dev_examples)
+
+    ner_model = build_ner_model(
+        pretrained_model,
+        num_labels,
+        seq_len
+    )
+
     optimizer, lr_schedule = get_optimizer(
         options.lr,
         options.num_train_epochs,
@@ -153,11 +162,6 @@ def main(argv):
         num_train_examples,
     )
 
-    ner_model = build_ner_model(
-        pretrained_model,
-        num_labels,
-        seq_len
-    )
     ner_model.compile(
         optimizer=optimizer,
         loss='sparse_categorical_crossentropy',
@@ -166,9 +170,6 @@ def main(argv):
     )
     logger.info('ner model:')
     ner_model.summary(print_fn=logger.info)
-
-    train_x, train_y = examples_to_inputs(train_examples)
-    dev_x, dev_y = examples_to_inputs(dev_examples)
 
     lr_history = LRHistory(lr_schedule)
     history = ner_model.fit(
