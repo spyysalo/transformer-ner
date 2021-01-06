@@ -17,7 +17,7 @@ ln -s "$SLURM_JOBID.err" "logs/latest.err"
 
 module purge
 module load tensorflow/2.2-hvd
-source transformers3.4/bin/activate
+source venv/bin/activate
 
 
 echo "START $SLURM_JOBID: $(date)"
