@@ -56,9 +56,10 @@ def viterbi_probabilities(sentence_labels, tag_map, lambda_=0.001):
 def viterbi_path(init_prob, trans_prob, cond_prob, weight=1):
     # Calculate viterbi path for given initial, transition, and conditional
     # probabilities. Operates in log-space to avoid underflow.
-    init_prob = np.log(init_prob)
-    trans_prob = np.log(trans_prob)
-    cond_prob = np.log(cond_prob)
+    with np.errstate(divide='ignore'):    # don't warn on log(0) == -inf
+        init_prob = np.log(init_prob)
+        trans_prob = np.log(trans_prob)
+        cond_prob = np.log(cond_prob)
 
     seq_length, num_states = cond_prob.shape
     prob = np.zeros((seq_length, num_states))
