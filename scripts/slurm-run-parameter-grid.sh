@@ -22,9 +22,9 @@ TurkuNLP/bert-base-finnish-cased-v1
 # bert-large-cased
 
 DATA_DIRS="
-data/combined-ext
+data/turku-ner
 "
-# data/turku-ner
+# data/combined-ext
 # data/conll03
 
 SEQ_LENS="128"
