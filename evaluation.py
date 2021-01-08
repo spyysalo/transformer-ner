@@ -113,10 +113,14 @@ def evaluate_viterbi(documents, init_prob, trans_prob, label_encoder):
     for weight in (1, 2, 4, 6, 8, 10):
         for document in documents:
             for sentence in document.sentences:
-                cond_prob = [w.tokens[0].pred_summary for w in sentence.words]
+                tokens = [t for w in sentence.words for t in w.tokens]
+                cond_prob = [t.pred_summary for t in tokens]
                 path = viterbi_path(init_prob, trans_prob, cond_prob, weight)
-                assert len(path) == len(sentence.words)
-                for idx, word in zip(path, sentence.words):
-                    word.predicted_label = label_encoder.inv_label_map[idx]
+                assert len(path) == len(tokens)
+                for idx, token in zip(path, tokens):
+                    label = label_encoder.inv_label_map[idx]
+                    token.viterbi_label = label
+                for word in sentence.words:
+                    word.predicted_label = word.tokens[0].viterbi_label
         results[f'viterbi w={weight}'] = conlleval_overall_results(documents)
     return results
