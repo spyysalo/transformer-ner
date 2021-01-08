@@ -11,7 +11,7 @@ import numpy as np
 from collections import OrderedDict
 from argparse import ArgumentParser
 
-from util import logger
+from util import logger, pairwise
 
 
 DOCUMENT_SEPARATOR = '-DOCSTART-'
@@ -60,10 +60,14 @@ class Document:
 
 class Sentence:
     def __init__(self, words):
-        for word in words:
-            word.sentence = self
         self.words = words
         self.document = None
+
+        for word in self.words:
+            word.sentence = self
+        for w1, w2 in pairwise(self.words):
+            w1.next_word = w2
+            w2.prev_word = w1
 
     def tokenize(self, tokenize_func, label_func):
         """Tokenize Words and assign token labels.
@@ -96,6 +100,8 @@ class Word:
         self.token_indices = None
         self.sentence = None
         self.predicted_label = None
+        self.prev_word = None
+        self.next_word = None
 
     @property
     def document(self):

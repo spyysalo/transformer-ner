@@ -1,16 +1,9 @@
 import json
 import numpy as np
 
-from itertools import tee
 from logging import error
 
-
-def pairwise(iterable):
-    """s -> (s0,s1), (s1,s2), (s2, s3), ..."""
-    # from https://docs.python.org/3/library/itertools.html
-    a, b = tee(iterable)
-    next(b, None)
-    return zip(a, b)
+from util import pairwise
 
 
 def _label_dict_to_array(label_dict, tag_map):

@@ -2,6 +2,7 @@ import sys
 import logging
 
 from collections import Counter
+from itertools import tee
 from functools import wraps
 from time import time
 
@@ -34,6 +35,14 @@ def unique(sequence):
 def most_common(sequence):
     """Return most common item in sequence."""
     return Counter(sequence).most_common(1)[0][0]
+
+
+def pairwise(iterable):
+    """s -> (s0,s1), (s1,s2), (s2, s3), ..."""
+    # from https://docs.python.org/3/library/itertools.html
+    a, b = tee(iterable)
+    next(b, None)
+    return zip(a, b)
 
 
 def log_examples(examples, count=1, log=logger.info):
