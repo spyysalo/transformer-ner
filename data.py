@@ -132,7 +132,7 @@ class Word:
             logger.warning(f'Word "{self.text}" tokenized to {token_texts}, '
                            f'replacing with {unk_token}')
             token_texts = [unk_token]
-        token_labels = label_func(self.label, token_texts)
+        token_labels = label_func(self, token_texts)
         self.tokens = [
             Token(t, l, self) for t, l in zip(token_texts, token_labels)
         ]

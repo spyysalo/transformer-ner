@@ -6,7 +6,8 @@ from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter
 
 from data import ConllLoader, Token, load_labels, write_conll
 from data import PREDICTION_SUMMARIZERS
-from label import LabelEncoder, Iob2TokenLabeler, LABEL_ASSIGNERS
+# from label import LabelEncoder, Iob2TokenLabeler, LABEL_ASSIGNERS
+from label import LabelEncoder, IobesTokenLabeler, LABEL_ASSIGNERS
 from example import EXAMPLE_GENERATORS, examples_to_inputs
 from model import load_pretrained, get_optimizer, build_ner_model
 from model import save_ner_model
@@ -90,9 +91,10 @@ def main(argv):
     # the tokenized data. The two are differentiated to allow distinct
     # labels to be added e.g. to continuation wordpieces.
     word_labels = load_labels(options.labels)
-    token_labeler = Iob2TokenLabeler(word_labels)
+    token_labeler = IobesTokenLabeler(word_labels)
     num_labels = len(token_labeler.labels())
     label_encoder = LabelEncoder(token_labeler.labels())
+    logger.info(f'token labels: {token_labeler.labels()}')
 
     logger.info('loading pretrained model')
     pretrained_model, tokenizer, config = load_pretrained(

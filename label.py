@@ -20,18 +20,85 @@ class Iob2TokenLabeler:
         """Return token labels used by the class."""
         return self.word_labels
 
-    def label_tokens(self, word_label, token_texts):
-        """Returns token labels for given Word label and tokens."""
+    def label_tokens(self, word, token_texts):
+        """Returns token labels for given Word and tokens."""
         num_tokens = len(token_texts)
-        if word_label == 'O' or word_label.startswith('I'):
-            return [word_label] * num_tokens
+        if word.label == 'O' or word.label.startswith('I'):
+            return [word.label] * num_tokens
         else:
             try:
-                assert word_label.startswith('B')
-                tag, type_ = word_label.split('-')
+                assert word.label.startswith('B')
+                tag, type_ = word.label.split('-', 1)
             except:
-                raise ValueError(f'invalid IOB2 label {word_label}')
-            return [word_label] + [f'I-{type_}'] * (num_tokens-1)
+                raise ValueError(f'invalid IOB2 label {word.label}')
+            return [word.label] + [f'I-{type_}'] * (num_tokens-1)
+
+
+def _start_of_span(word):
+    """Returns True if Word starts IOB2 or IOBES span, False otherwise."""
+    if word.label == 'O':
+        return False
+    elif word.label[0] in 'BS':
+        return True
+    elif word.label[0] in 'IE':
+        return False
+    else:
+        raise ValueError(word.label)
+
+
+def _end_of_span(word):
+    """Returns True if Word ends IOB2 or IOBES span, False otherwise."""
+    if word.label == 'O':
+        return False
+    elif word.label[0] in 'ES':
+        return True
+    elif word.label[0] in 'BI':
+        # Depends on the next word label for IOB2
+        if word.next_word is None:
+            return True
+        elif word.next_word.label[0] in 'BSO':
+            return True
+        elif word.next_word.label[0] in 'IE':
+            return False
+        else:
+            raise ValueError(word.next_word.label)
+    else:
+        raise ValueError(word.label)
+
+
+def _single_word_span(word):
+    return _start_of_span(word) and _end_of_span(word)
+
+
+class IobesTokenLabeler:
+    """Labels tokens with IOBES labels based on Word IOBES or IOB2 label."""
+
+    def __init__(self, word_labels):
+        self.word_labels = word_labels.copy()
+
+    def labels(self):
+        """Return token labels used by the class."""
+        types = set(l.split('-', 1)[1] for l in self.word_labels if l != 'O')
+        return ['O'] + [f'{t}-{l}' for t in 'BIES' for l in sorted(types)]
+
+    def label_tokens(self, word, token_texts):
+        if word.label == 'O':
+            return ['O'] * len(token_texts)
+
+        if _single_word_span(word):
+            if len(token_texts) == 1:
+                tags = ['S']
+            else:
+                tags = ['B'] + ['I'] * (len(token_texts)-2) + ['E']
+        elif _start_of_span(word):
+            tags = ['B'] + ['I'] * (len(token_texts)-1)
+        elif _end_of_span(word):
+            tags = ['I'] * (len(token_texts)-1) + ['E']
+        else:
+            assert word.label[0] == 'I'
+            tags = ['I'] * len(token_texts)
+        type_ = word.label.split('-', 1)[1]
+        return [f'{tag}-{type_}' for tag in tags]
 
 
 class LabelEncoder:
