@@ -87,14 +87,13 @@ class ExampleGenerator:
                 tokens
             )
 
-        input_weights = [int(not t.masked) for t in padded]
-        segment_ids = [0] * self.seq_len
-            
         # Encode tokens and labels
         token_texts = [t.text for t in padded]
         token_labels = [t.label for t in padded]
         token_ids = self.encode_tokens(token_texts)
         label_ids = self.encode_labels(token_labels)
+        input_weights = [int(not t.masked) for t in padded]
+        segment_ids = [t.segment_id for t in padded]
     
         return Example(padded, token_ids, label_ids, input_weights,
                        segment_ids)

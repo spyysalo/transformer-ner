@@ -8,6 +8,8 @@ from conlleval import evaluate, report, metrics
 from data import write_conll
 from collections import OrderedDict
 
+from label import iobes_to_iob2
+
 
 def conlleval_evaluate(documents):
     """Return conlleval evaluation results for Documents as counts."""
@@ -119,6 +121,7 @@ def evaluate_viterbi(documents, init_prob, trans_prob, label_encoder):
                 assert len(path) == len(tokens)
                 for idx, token in zip(path, tokens):
                     label = label_encoder.inv_label_map[idx]
+                    label = iobes_to_iob2(label)
                     token.viterbi_label = label
                 for word in sentence.words:
                     word.predicted_label = word.tokens[0].viterbi_label

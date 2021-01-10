@@ -119,14 +119,29 @@ class LabelEncoder:
         return [self.inv_label_map[idx] for idx in label_indices]
 
 
-def assign_labels_first(document, label_encoder):
+def iobes_to_iob2(label):
+    if label.startswith('S'):
+        iob2_tag = 'B'
+    elif label.startswith('E'):
+        iob2_tag = 'I'
+    else:
+        return label
+    type_ = label.split('-', 1)[1]
+    return f'{iob2_tag}-{type_}'
+
+
+def assign_iob2_labels_first(document, label_encoder):
     """Assign Word labels based on prediction summary for first Token."""
     for sentence in document.sentences:
         for word in sentence.words:
             label_idx = np.argmax(word.tokens[0].pred_summary, axis=-1)
-            word.predicted_label = label_encoder.inv_label_map[label_idx]
+            label = label_encoder.inv_label_map[label_idx]
+            label = iobes_to_iob2(label)
+            if label[0] not in 'IOB':
+                raise ValueError(label)
+            word.predicted_label = label
 
 
 LABEL_ASSIGNERS = OrderedDict([
-    ('first', assign_labels_first),
+    ('first', assign_iob2_labels_first),
 ])

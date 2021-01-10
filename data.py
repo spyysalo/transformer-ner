@@ -133,8 +133,14 @@ class Word:
                            f'replacing with {unk_token}')
             token_texts = [unk_token]
         token_labels = label_func(self, token_texts)
+        # TODO parameterize use of segment IDs
+        # segment_ids = [0] + [1] * (len(token_texts)-1)
+        segment_ids = [0] * len(token_texts)
+        assert len(token_labels) == len(token_texts)
+        assert len(segment_ids) == len(token_texts)
         self.tokens = [
-            Token(t, l, self) for t, l in zip(token_texts, token_labels)
+            Token(t, label=l, word=self, segment_id=s)
+            for t, l, s in zip(token_texts, token_labels, segment_ids)
         ]
 
     def __str__(self):
@@ -143,12 +149,13 @@ class Word:
 
 class Token:
     def __init__(self, text, label=None, word=None, is_special=False,
-                 masked=False):
+                 masked=False, segment_id=0):
         self.text = text
         self.label = label
         self.word = word
         self.is_special = is_special
         self.masked = masked
+        self.segment_id = segment_id
         self.predictions = []
         self.pred_summary = None
 
