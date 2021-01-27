@@ -90,6 +90,10 @@ def is_IOB_tag(s):
     return IOB_TAG_RE.match(s)
 
 
+def is_docstart(s):
+    return s == '-DOCSTART-'
+
+
 def IOB_indices(blocks):
     """Return indices of fields containing IOB tags.
 
@@ -108,7 +112,10 @@ def IOB_indices(blocks):
             if valid is None:
                 valid = range(len(line))
 
-            valid = [i for i in valid if i < len(line) and is_IOB_tag(line[i])]
+            valid = [
+                i for i in valid if i < len(line) and 
+                is_IOB_tag(line[i]) or is_docstart(line[0])
+            ]
 
             # Short-circuit
             if len(valid) == 0:
@@ -126,6 +133,9 @@ def _fix_IOB_index(blocks, index, mode, verbose):
     for block in blocks:
         prev_tag = None
         for line in block:
+            if is_docstart(line[0]):
+                continue
+
             ttag, ttype = parse_IOB_tag(line[index])
 
             if (prev_tag is None or prev_tag == "O") and ttag == "I":
@@ -140,6 +150,9 @@ def _fix_IOB_index(blocks, index, mode, verbose):
     for block in blocks:
         prev_tag, prev_type = None, None
         for ln, line in enumerate(block):
+            if is_docstart(line[0]):
+                continue
+
             ttag, ttype = parse_IOB_tag(line[index])
 
             if prev_tag in ("B", "I") and  ttag == "I" and prev_type != ttype:
