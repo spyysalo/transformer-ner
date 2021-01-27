@@ -5,7 +5,9 @@ from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter
 from model import load_ner_model
 from data import ConllLoader, Token, PREDICTION_SUMMARIZERS
 from data import write_conll
-from label import LabelEncoder, Iob2TokenLabeler, LABEL_ASSIGNERS
+# from label import LabelEncoder, Iob2TokenLabeler, LABEL_ASSIGNERS
+from label import LabelEncoder, IobesTokenLabeler, LABEL_ASSIGNERS
+from label import iobes_to_iob2
 from example import EXAMPLE_GENERATORS, examples_to_inputs
 from util import logger, unique
 from evaluation import conlleval_report
@@ -28,7 +30,7 @@ def main(argv):
     ner_model, decoder, tokenizer, word_labels, config = load_ner_model(
         options.ner_model_dir)
 
-    token_labeler = Iob2TokenLabeler(word_labels)
+    token_labeler = IobesTokenLabeler(word_labels)
     label_encoder = LabelEncoder(token_labeler.labels())
 
     encode_tokens = lambda t: tokenizer.encode(t, add_special_tokens=False)
@@ -41,7 +43,7 @@ def main(argv):
     )
 
     example_generator = 'wrap'    # TODO read from config
-    seq_len = 128    # TODO read from config
+    seq_len = 512    # TODO read from config
     example_generator = EXAMPLE_GENERATORS[example_generator](
         seq_len,
         Token(tokenizer.cls_token, is_special=True, masked=False),
@@ -78,12 +80,20 @@ def main(argv):
     with open('greedy.tsv', 'w') as out:
         write_conll(documents, out=out)
 
+    print(conlleval_report(documents))
+
     for document in documents:
         for sentence in document.sentences:
-            cond_prob = [w.tokens[0].pred_summary for w in sentence.words]
-            path = decoder.viterbi_path(cond_prob, weight=10)
-            for idx, word in zip(path, sentence.words):
-                word.predicted_label = label_encoder.inv_label_map[idx]
+            tokens = [t for w in sentence.words for t in w.tokens]
+            cond_prob = [t.pred_summary for t in tokens]
+            path = decoder.viterbi_path(cond_prob, weight=4)
+            assert len(path) == len(tokens)
+            for idx, token in zip(path, tokens):
+                label = label_encoder.inv_label_map[idx]
+                label = iobes_to_iob2(label)
+                token.viterbi_label = label
+            for word in sentence.words:
+                word.predicted_label = word.tokens[0].viterbi_label
 
     with open('viterbi.tsv', 'w') as out:
         write_conll(documents, out=out)
