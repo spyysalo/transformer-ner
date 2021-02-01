@@ -7,6 +7,7 @@ import numpy as np
 
 from collections import OrderedDict
 from itertools import cycle
+from copy import deepcopy
 
 
 class Example:
@@ -75,15 +76,15 @@ class ExampleGenerator:
         if self.align == 'left':
             # First token is CLS, then text tokens, and finally pad
             padded = (
-                [self.cls_token] +
+                [deepcopy(self.cls_token)] +
                 tokens +
-                [self.pad_token] * (self.seq_len-len(tokens)-1)
+                [deepcopy(self.pad_token)] * (self.seq_len-len(tokens)-1)
             )
         elif self.align == 'right':
             # First token is CLS, pad, and finally tokens
             padded = (
-                [self.cls_token] +
-                [self.pad_token] * (self.seq_len-len(tokens)-1) +
+                [deepcopy(self.cls_token)] +
+                [deepcopy(self.pad_token)] * (self.seq_len-len(tokens)-1) +
                 tokens
             )
 
@@ -134,7 +135,7 @@ class FillSentenceExampleGenerator(ExampleGenerator):
     def fill(self, tokens, sentences, current_idx):
         for sentence in sentences[current_idx+1:]:
             if len(tokens) < self.max_tokens:
-                tokens.append(self.sep_token)
+                tokens.append(deepcopy(self.sep_token))
             for word in sentence.words:
                 if len(tokens) + len(word.tokens) + 1 > self.max_tokens:
                     return tokens    # word doesn't fit, don't include partial
@@ -154,7 +155,7 @@ class WrapSentenceExampleGenerator(ExampleGenerator):
             next(sentences)    # skip past current
         for sentence in sentences:
             if len(tokens) < self.max_tokens:
-                tokens.append(self.sep_token)
+                tokens.append(deepcopy(self.sep_token))
             for word in sentence.words:
                 if len(tokens) + len(word.tokens) + 1 > self.max_tokens:
                     return tokens    # word doesn't fit, don't include partial
